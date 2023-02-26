@@ -84,20 +84,18 @@ print(distance)
 QUERY:
 Can you solve this for me? 5x + 20 = 40
 RESPONSE:
+import sympy
+
 # Define variable x
-x = 0
+x = sympy.symbols('x')
 
-left_side = 5 * x + 20
-right_side = 40
+# Define equation
+equation = 5x + 20 - 40
 
-# Subtract 20 from both sides
-left_side -= 20
-right_side -= 20
+# Solve equation
+solution = sympy.solve(equation, x)
 
-# Divide both sides by 5
-x = right_side / 5
-
-print("x =", x)
+print("x =", solution)
 QUERY:
 Hey chatbot - can you tell me what 2 to the power of 8 is?
 REPONSE:
