@@ -7,6 +7,9 @@ import json
 import sounddevice as sd
 import subprocess
 
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+OS = os.environ.get('OS')
+
 normal_prompt = '''
 CHATBOT INSTRUCTIONS:
 You are a helpful chatbot named "Robot" - your purpose is to answer questions factually and accuratly. Your answers should be short and concise--limited to 1 paragraph at most. You should never speak in a threatening tone towards the user.
@@ -113,7 +116,6 @@ QUERY:
 is_math_prompt += sys.argv[1]
 is_math_prompt += '\nRESPONSE:\n'
 
-openai_api_key = os.environ.get('OPENAI_API_KEY')
 model_name = "text-davinci-003"
 temperature = 0.7
 max_tokens = 256
@@ -125,7 +127,7 @@ url = "https://api.openai.com/v1/completions"
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": f"Bearer {openai_api_key}"
+    "Authorization": f"Bearer {OPENAI_API_KEY}"
 }
 
 data = {
@@ -154,7 +156,7 @@ if (len(gpt_response) > 0):
         if (len(gpt_response) > 0):
             print(gpt_response)
             print('\n\nOUTPUT:')
-            subprocess.run(["python3", "-c", gpt_response], check=True)
+            subprocess.run(["python.exe" if OS == 'Windows_NT' else "python3", "-c", gpt_response], check=True)
         else:
             print("Sorry. It looks like the GPT3 api failed to give a valid response!")
     # Normal question
