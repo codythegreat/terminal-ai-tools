@@ -56,9 +56,16 @@ def notify_if_chatgpt_memory_exceeds_limit(memory_objects, limit=100):
     if len(memory_objects) > limit:
         print(f"\033[91mWARNING: chat memory is getting large (>{limit})\033[0m" if TERM_SUPPORTS_COLOR else f"WARNING: chat memory is getting large (>{limit})")
 
+def get_openai_chatgpt_completion(messages):
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages
+    )
+    return completion
 
 def loop(task):
     memory_objects = load_chatgpt_memory()
+    memory_objects.append({"role": "user", "content": task})
 
     messages=[
         {"role": "system", "content": SYSTEM_PROMPT}
@@ -67,16 +74,8 @@ def loop(task):
     for memory_object in memory_objects:
         messages.append({"role": memory_object["role"], "content": memory_object["content"]})
 
-    messages.append({"role": "user", "content": task})
+    response = get_openai_chatgpt_completion(messages).choices[0].message.content
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages
-    )
-
-    response = completion.choices[0].message.content
-
-    memory_objects.append({"role": "user", "content": task})
     memory_objects.append({"role": "assistant", "content": response})
 
     notify_if_chatgpt_memory_exceeds_limit(memory_objects)
@@ -88,7 +87,20 @@ def loop(task):
     match = re.findall(r'EXECUTE\((.*)\)', response)
     for command in match:
         handle_command(command)
+    
+    continuing = input("Continue using chatgpt-agent? (y/n): ") == 'y'
+    if continuing:
+        task = input("User: ")
+        loop(task)
 
+
+def change_directory(path):
+    # convert ~ to an abolute path
+    if path.startswith('~'):
+        path = os.path.expanduser(path)
+
+    os.chdir(path)
+    print(f'\nOUTPUT:\nPWD: {path}')
 
 def handle_command(command):
     print(command)
@@ -98,14 +110,9 @@ def handle_command(command):
         # whenever we have other commands separated by &&
         # We need to isolate the path we're cd-ing into
         raw_commands = command.split("&&")
-        directory = raw_commands[0][3:].strip()
-        
-        # convert ~ to an abolute path
-        if directory.startswith('~'):
-            directory = os.path.expanduser(directory)
+        path = raw_commands[0][3:].strip()
 
-        os.chdir(directory)
-        print(f'\nOUTPUT:\nPWD: {directory}')
+        change_directory(path)
   
         # handle remaining commands separated by &&
         if len(raw_commands) > 1:
@@ -115,15 +122,16 @@ def handle_command(command):
     elif canExecute:
         try:
             output = subprocess.check_output(command, shell=True).decode()
-            print(f'\nOUTPUT:\n{output}')
         except subprocess.CalledProcessError as e:
             output = e
+        print(f'\nOUTPUT:\n{output}')
 
     else:
         instructions = input("If you'd like to instruct chatgpt-agent, type now: ")
         if instructions != "":
-            task += f'\n\n{instructions}'
+            task = f'{instructions}'
             loop(task)
+        exit()
 
 
 loop(task)
