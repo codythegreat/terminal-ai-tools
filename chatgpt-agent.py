@@ -52,9 +52,11 @@ def save_chatgpt_memory(memory_objects):
     with open('chatgpt-memory.json', 'w') as f:
         json.dump(memory_objects, f)
 
-def notify_if_chatgpt_memory_exceeds_limit(memory_objects, limit=100):
-    if len(memory_objects) > limit:
-        print(f"\033[91mWARNING: chat memory is getting large (>{limit})\033[0m" if TERM_SUPPORTS_COLOR else f"WARNING: chat memory is getting large (>{limit})")
+def notify_if_chatgpt_memory_exceeds_character_limit(memory_objects, limit=10000):
+    total_content_length = sum(len(memory_object["content"]) for memory_object in memory_objects)
+    if total_content_length > limit:
+        warning_message = f"WARNING: chat memory is getting large (>{limit})"
+        print(f"\033[91m{warning_message}\033[0m" if TERM_SUPPORTS_COLOR else warning_message)
 
 def get_openai_chatgpt_completion(messages):
     completion = openai.ChatCompletion.create(
@@ -70,15 +72,12 @@ def loop(task):
     messages=[
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
-
-    for memory_object in memory_objects:
-        messages.append({"role": memory_object["role"], "content": memory_object["content"]})
+    messages.extend(memory_objects)
 
     response = get_openai_chatgpt_completion(messages).choices[0].message.content
-
     memory_objects.append({"role": "assistant", "content": response})
 
-    notify_if_chatgpt_memory_exceeds_limit(memory_objects)
+    notify_if_chatgpt_memory_exceeds_character_limit(memory_objects)
 
     save_chatgpt_memory(memory_objects)
 
