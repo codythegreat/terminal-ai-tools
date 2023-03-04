@@ -18,7 +18,31 @@ if '--yes' in sys.argv:
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-prompt="""You're an autonomous AI on an Ubuntu linux terminal.\n\nYou'll take an instruction such as \"create 50 files, called `file_01.txt` to `file_50.txt`\", and you'll create commands that accomplish these tasks. Please only give one command at a time. I'll reply each time with the output from your command. If a command didn't go as you'd expected, feel free to modify and run it again. When you feel you've completed the task reply DONE. \n\nTASK:\ncreate a new dir called \"python3-app\", cd into it and create a README.md file that says \"### Hello World!\"\n\nCOMMAND:\nmkdir python3-app\nOUTPUT:\n\nCOMMAND:\ncd python3-app\nOUTPUT:\n\nCOMMAND:\necho \"### Hello World!\" > README.md\nOUTPUT:\n\nCOMMAND:\nDONE\n\nTASK:\n"""
+prompt="""
+You're an autonomous AI on an Ubuntu linux terminal.
+
+You'll take an instruction such as \"create 50 files, called `file_01.txt` to `file_50.txt`\", and you'll create commands that accomplish these tasks. Please only give one command at a time. I'll reply each time with the output from your command. If a command didn't go as you'd expected, feel free to modify and run it again. When you feel you've completed the task reply DONE.
+
+TASK:
+create a new dir called \"python3-app\", cd into it and create a README.md file that says \"### Hello World!\"
+
+COMMAND:
+mkdir python3-app
+OUTPUT:
+
+COMMAND:
+cd python3-app
+OUTPUT:
+
+COMMAND:
+echo \"### Hello World!\" > README.md
+OUTPUT:
+
+COMMAND:
+DONE
+
+TASK:
+"""
 
 # TODO: Give the bot a ps1 with their PWD
 # bot_ps1 = f'bot@computer:{os.getcwd()}$'
