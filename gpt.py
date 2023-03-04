@@ -6,34 +6,12 @@ import requests
 import json
 import sounddevice as sd
 import subprocess
+import openai
+from elevenlabslib import *
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+openai.api_key = os.getenv("OPENAI_API_KEY")
 OS = os.environ.get('OS')
-
-normal_prompt = '''
-CHATBOT INSTRUCTIONS:
-You are a helpful chatbot named "Robot" - your purpose is to answer questions factually and accuratly. Your answers should be short and concise--limited to 1 paragraph at most. You should never speak in a threatening tone towards the user.
-
-USER INFORMATION:
-Name: Cody
-Location: Texas
-
-QUERY:
-What are the health pros and cons of split pea soup?
-RESPONSE:
-Pros: Split peas are high in protein, fiber, and various vitamins and minerals.
-Cons: Split peas are relatively high in calories and carbohydrates.
-QUERY:
-What is the capital of Oklahoma?
-RESPONSE:
-Oklahoma City.
-QUERY:
-Hey robot - I'm trying to think of the name of that toy where you use bricks to build stuff. Can you help me?
-RESPONSE:
-It sounds like you're referring to LEGO.
-QUERY:
-
-'''
 
 is_math_prompt = '''
 INSTRUCTIONS:
@@ -161,14 +139,26 @@ if (len(gpt_response) > 0):
             print("Sorry. It looks like the GPT3 api failed to give a valid response!")
     # Normal question
     else:
-        normal_prompt += sys.argv[1]
-        normal_prompt += '\nRESPONSE:\n'
-        data['prompt'] = normal_prompt
-        api_response = requests.post(url, headers=headers, data=json.dumps(data))
-        api_response_data = json.loads(api_response.text)
-        gpt_response = api_response_data['choices'][0]['text']
-        if (len(gpt_response) > 0):
-            print(gpt_response)
+        prompt = sys.argv[1]
+
+        completion = openai.ChatCompletion.create(
+          model="gpt-3.5-turbo",
+          messages=[
+            {"role": "system", "content": "Please answer user questions concisely - you should answer in just a few sentences."},
+            {"role": "user", "content": "Tell me about healthy blood pressure ranges"},
+            {"role": "assistant", "content": "A healthy blood pressure range is typically considered to be less than 120/80 mmHg. However, it's important to note that blood pressure can vary based on age, gender, and overall health, so it's best to consult with a doctor to determine what's right for you. High blood pressure (hypertension) can increase your risk for heart disease and stroke, so it's important to monitor and manage your blood pressure."},
+            {"role": "user", "content": "which was more popular - windows vista or xp?"},
+            {"role": "assistant", "content": "Windows XP was more popular than Windows Vista. XP was released in 2001 and was widely used by consumers and businesses for many years. Vista, which was released in 2006, was not as well-received due to its higher system requirements and compatibility issues with some software and hardware. Windows 7, which was released in 2009, became the preferred choice for many users after XP."},
+            {"role": "user", "content": prompt}
+          ]
+        )
+
+        response = completion.choices[0].message.content
+        if (len(response) > 0):
+            print(response)
+            user = ElevenLabsUser(os.environ.get('ELEVEN_LABS_API_KEY'))
+            voice = user.get_voices_by_name("Rachel")[0]  # This is a list because multiple voices can have the same name
+            voice.generate_and_play_audio(response, playInBackground=False)
         else:
             print("Sorry. It looks like the GPT3 api failed to give a valid response!")
 else:
