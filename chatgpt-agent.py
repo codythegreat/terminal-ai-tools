@@ -4,10 +4,17 @@ import os
 import openai
 import sys
 import subprocess
-import argparse
 import re
 import json
 import datetime
+import requests
+
+response = requests.get("https://ipinfo.io/json")
+
+if response.status_code == 200:
+    ipinfo = response.json()
+    city = ipinfo['city']
+    region = ipinfo['region']
 
 TERM_SUPPORTS_COLOR = os.getenv('TERM') is not None and '256' in os.getenv('TERM')
 
@@ -15,7 +22,7 @@ SYSTEM_PROMPT = f"""
 You are an assistant on a Linux (Ubuntu) terminal.
       
 User Details:
-* location: Flower Mound, TX
+{f"* location: {city}, {region}" if city and region else ''}
 * date: {datetime.datetime.now().strftime("%m-%d-%Y")}
 * time: {datetime.datetime.now().strftime("%H:%M %p")}
 * PWD: {os.getcwd()}
@@ -36,7 +43,8 @@ Assistant:
 EXECUTE(curl "https://wttr.in/Flower+Mound")
       
 When asked to create a file or program, be sure to use the EXECUTE(command) syntax to create the file or program.
-Do not use programs like nano or vim. Instead, you can echo line-by-line into a file.
+You can use echo to write text line-by-line into a file.
+Do not use programs that require user input, such as top, nano, or apt.
 """
 
 task = sys.argv[1]
@@ -44,8 +52,11 @@ task = sys.argv[1]
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def load_chatgpt_memory():
-    with open('chatgpt-memory.json', 'r') as f:
-        memory_objects = json.load(f)
+    if os.path.exists('chatgpt-memory.json'):
+        with open('chatgpt-memory.json', 'r') as f:
+            memory_objects = json.load(f)
+    else:
+        memory_objects = []
     return memory_objects
 
 def save_chatgpt_memory(memory_objects):
@@ -58,12 +69,14 @@ def notify_if_chatgpt_memory_exceeds_character_limit(memory_objects, limit=10000
         warning_message = f"WARNING: chat memory is getting large (>{limit})"
         print(f"\033[91m{warning_message}\033[0m" if TERM_SUPPORTS_COLOR else warning_message)
 
+
 def get_openai_chatgpt_completion(messages):
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=messages
     )
     return completion
+
 
 def loop(task):
     memory_objects = load_chatgpt_memory()
@@ -100,6 +113,7 @@ def change_directory(path):
 
     os.chdir(path)
     print(f'\nOUTPUT:\nPWD: {path}')
+
 
 def handle_command(command):
     print(command)
