@@ -52,10 +52,18 @@ Query: events flower mound tx"""},
     response = completion.choices[0].message.content
 
     match = re.findall(r'OPEN\(([1-9]|10)\)', response)
+    parsed_urls = []
     for number in match:
         number = int(number)
         url = results[number - 1]
-        summarize_url(url)
+        article = get_article_from_url(url)
+        parsed_urls.append({
+            'content': article,
+            'url': url,
+        })
+        summarize_url(parsed_urls[-1])
+    option = input(f"Press 1 - {len(parsed_urls)} to select a URL to view, or 0 to exit: ")
+    exit if option == "0" else print(parsed_urls[int(option) - 1]['content'])
 
 def get_article_from_url(url):
     # Note: This is a hacky way to get the text from a website.
@@ -83,8 +91,8 @@ def get_article_from_url(url):
     return output
 
 
-def summarize_url(url):
-    output = get_article_from_url(url)
+def summarize_url(parsed_url):
+    output = parsed_url['content']
 
     output += f"\n\nQUERY: \"{query}\""
     
@@ -97,7 +105,7 @@ def summarize_url(url):
     )
 
     response = completion.choices[0].message.content
-    print(f"URL: {url}\n\nSUMMARY:\n{response}\n\n")
+    print(f"URL: {parsed_url['url']}\n\nSUMMARY:\n{response}\n\n")
 
 
 get_best_search_results()
