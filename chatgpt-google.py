@@ -4,6 +4,7 @@ import os
 import sys
 import openai
 import re
+import subprocess
 from googlesearch import search
 from newspaper import Article
 
@@ -62,8 +63,20 @@ Query: events flower mound tx"""},
             'url': url,
         })
         summarize_url(parsed_urls[-1])
-    option = input(f"Press 1 - {len(parsed_urls)} to select a URL to view, or 0 to exit: ")
-    exit if option == "0" else print(parsed_urls[int(option) - 1]['content'])
+
+    if len(parsed_urls) == 0:
+        exit()
+
+    option = input(f"Press {1 if len(parsed_urls) == 1 else f'1 - {len(parsed_urls)}'} to select a URL to view, or 0 to exit: ")
+
+    if not (option.isdigit() and 1 <= int(option) <= len(parsed_urls)):
+        print("exiting...")
+        exit()
+
+    # Launch vim with the content as input
+    cmd = ['vim', '-']
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    p.communicate(input=parsed_urls[int(option) - 1]['content'].encode('utf-8'))
 
 def get_article_from_url(url):
     # Note: This is a hacky way to get the text from a website.
