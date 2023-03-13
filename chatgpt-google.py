@@ -44,6 +44,7 @@ def get_best_search_results():
             'content': article,
             'url': url,
         })
+
         summarize_url(parsed_urls[-1])
 
     if len(parsed_urls) == 0:
@@ -72,16 +73,15 @@ def get_article_from_url(url):
         article = subprocess.check_output(f'lynx -dump -nolist "{url}"', shell=True).decode()
         output = f"TITLE: {title}\n\nTEXT:\n{article}"
 
-
-    # leave some room for chatGPT
-    if len(output) > 10000:
-        output = output[:10000]
-
     return output
 
 
 def summarize_url(parsed_url):
     output = parsed_url['content']
+
+    # leave some room for chatGPT
+    if len(output) > 10000:
+        output = output[:10000]
 
     output += f"\n\nQUERY: \"{query}\""
     
