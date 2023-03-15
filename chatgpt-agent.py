@@ -51,16 +51,23 @@ task = sys.argv[1]
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-MEMORY_FOLDER_PATH = 'memory'
-MEMORY_FILE_PREFIX = 'chatgpt-memory_'
-MEMORY_FILE_EXTENSION = '.json'
-MEMORY_FILE_CHAR_LIMIT = 10000
+MEMORY_SETTINGS = {
+    "folder_path": "memory",
+    "file_prefix": "chatgpt-memory_",
+    "file_extension": ".json",
+    "file_char_limit": 10000
+}
+
+LOG_SETTINGS = {
+    "dir": "log",
+    "is_logging": True
+}
 
 def get_latest_chatgpt_memory_file():
-    if not os.path.exists(MEMORY_FOLDER_PATH):
-        os.makedirs(MEMORY_FOLDER_PATH)
-    memory_files = [f for f in os.listdir(MEMORY_FOLDER_PATH) if os.path.isfile(os.path.join(MEMORY_FOLDER_PATH, f)) 
-                   and f.startswith(MEMORY_FILE_PREFIX) and f.endswith(MEMORY_FILE_EXTENSION)]
+    if not os.path.exists(MEMORY_SETTINGS['folder_path']):
+        os.makedirs(MEMORY_SETTINGS['folder_path'])
+    memory_files = [f for f in os.listdir(MEMORY_SETTINGS['folder_path']) if os.path.isfile(os.path.join(MEMORY_SETTINGS['folder_path'], f)) 
+                   and f.startswith(MEMORY_SETTINGS['file_prefix']) and f.endswith(MEMORY_SETTINGS['file_extension'])]
     if not memory_files:
         return None
     return max(memory_files)
@@ -68,7 +75,7 @@ def get_latest_chatgpt_memory_file():
 def load_chatgpt_memory():
     latest_file = get_latest_chatgpt_memory_file()
     if latest_file is not None:
-        with open(os.path.join(MEMORY_FOLDER_PATH, latest_file), 'r') as f:
+        with open(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file), 'r') as f:
             memory_objects = json.load(f)
     else:
         memory_objects = []
@@ -77,33 +84,36 @@ def load_chatgpt_memory():
 def save_chatgpt_memory(memory_objects):
     latest_file = get_latest_chatgpt_memory_file()
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    if latest_file is not None and os.stat(os.path.join(MEMORY_FOLDER_PATH, latest_file)).st_size < MEMORY_FILE_CHAR_LIMIT:
-        with open(os.path.join(MEMORY_FOLDER_PATH, latest_file), 'w') as f:
+    if latest_file is not None and os.stat(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file)).st_size < MEMORY_SETTINGS['file_char_limit']:
+        with open(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file), 'w') as f:
             json.dump(memory_objects, f)
     else:
-        new_file_name = MEMORY_FILE_PREFIX + now + MEMORY_FILE_EXTENSION
-        with open(os.path.join(MEMORY_FOLDER_PATH, new_file_name), 'w') as f:
+        new_file_name = MEMORY_SETTINGS['file_prefix'] + now + MEMORY_SETTINGS['file_extension']
+        with open(os.path.join(MEMORY_SETTINGS['folder_path'], new_file_name), 'w') as f:
             json.dump(memory_objects, f)
 
 def notify_if_chatgpt_memory_exceeds_character_limit(memory_objects):
     total_content_length = sum(len(memory_object["content"]) for memory_object in memory_objects)
-    if total_content_length > MEMORY_FILE_CHAR_LIMIT:
-        warning_message = f"WARNING: chat memory is getting large (>{MEMORY_FILE_CHAR_LIMIT})"
+    if total_content_length > MEMORY_SETTINGS['file_char_limit']:
+        warning_message = f"WARNING: chat memory is getting large (>{MEMORY_SETTINGS['file_char_limit']})"
         print(f"\033[91m{warning_message}\033[0m" if TERM_SUPPORTS_COLOR else warning_message)
-
-LOG_DIR = 'log'
-IS_LOGGING = True
 
 def get_openai_chatgpt_completion(messages):
     completion = openai.ChatCompletion.create(
         model='gpt-3.5-turbo',
         messages=messages
     )
-    if IS_LOGGING:
-        with open(f'{LOG_DIR}/completions.json', 'a') as log_file:
+    if LOG_SETTINGS['is_logging']:
+        with open(f"{LOG_SETTINGS['dir']}/completions.json", 'a') as log_file:
             log_file.write(json.dumps(completion) + '\n')
     return completion
 
+def format_colored_text(text, color_code):
+    ANSI_COLOR_RESET = "\033[0m"
+    if TERM_SUPPORTS_COLOR:
+        return f'\033[{color_code}m{text}{ANSI_COLOR_RESET}'
+    else:
+        return text
 
 def loop(task):
     memory_objects = load_chatgpt_memory()
@@ -121,7 +131,7 @@ def loop(task):
 
     save_chatgpt_memory(memory_objects)
 
-    print(f'\n\033[38;5;24m{response}\033[0m\n' if TERM_SUPPORTS_COLOR else f'{response}\n')
+    print(format_colored_text(response, "38;5;24") + '\n')
 
     match = re.findall(r'EXECUTE\((.*)\)', response)
     for command in match:
@@ -173,5 +183,5 @@ def handle_command(command):
             loop(task)
         exit()
 
-
-loop(task)
+if __name__ == '__main__':
+    loop(task)
