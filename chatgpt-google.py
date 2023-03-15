@@ -27,26 +27,8 @@ def get_best_search_results():
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": """1) http://t3.gstatic.com/licensed-image?q=tbn:ANd9GcTg7KNGcDDNqQ0BJbTb2X6qEFhBct63mNP_67cjwqaMndhdj1Fe68Lbr3IlD9kQwhbW
-2) https://en.wikipedia.org/wiki/Flower_Mound,_Texas
-3) https://www.flower-mound.com/112/Upcoming-Events
-4) https://www.flower-mound.com/1943/Special-Events
-5) https://www.eventbrite.com/d/tx--flower-mound/events--this-weekend/
-6) https://www.eventbrite.com/d/tx--flower-mound/events/
-7) https://www.groupon.com/local/flower-mound-tx/tickets-and-events
-8) https://allevents.in/flower%20mound/this-weekend
-9) https://www.facebook.com/4fortyEvents/
-10) https://www.partyslate.com/venues/4forty-events
-
-Query: events flower mound tx"""},
-            {"role": "assistant", "content": """Here are the three best search results for "events flower mound tx":
-
-1) OPEN(2) https://en.wikipedia.org/wiki/Flower_Mound,_Texas - This Wikipedia page provides general information about Flower Mound, including a section on local events.
-
-2) OPEN(3) https://www.flower-mound.com/112/Upcoming-Events - This is the official website of Flower Mound, Texas and has a dedicated page for upcoming events in the area.
-
-3) OPEN(7) https://www.groupon.com/local/flower-mound-tx/tickets-and-events - This Groupon page features discounted tickets and deals for various events in Flower Mound.
-            """},
+            {"role": "user", "content": """1) http://t3.gstatic.com/licensed-image?q=tbn:ANd9GcTg7KNGcDDNqQ0BJbTb2X6qEFhBct63mNP_67cjwqaMndhdj1Fe68Lbr3IlD9kQwhbW\n2) https://en.wikipedia.org/wiki/Flower_Mound,_Texas\n3) https://www.flower-mound.com/112/Upcoming-Events\n4) https://www.flower-mound.com/1943/Special-Events\n5) https://www.eventbrite.com/d/tx--flower-mound/events--this-weekend/\n6) https://www.eventbrite.com/d/tx--flower-mound/events/\n7) https://www.groupon.com/local/flower-mound-tx/tickets-and-events\n8) https://allevents.in/flower%20mound/this-weekend\n9) https://www.facebook.com/4fortyEvents/\n10) https://www.partyslate.com/venues/4forty-events\n\nQuery: events flower mound tx"""},
+            {"role": "assistant", "content": """Here are the three best search results for "events flower mound tx":\n\n1) OPEN(2) https://en.wikipedia.org/wiki/Flower_Mound,_Texas - This Wikipedia page provides general information about Flower Mound, including a section on local events.\n\n2) OPEN(3) https://www.flower-mound.com/112/Upcoming-Events - This is the official website of Flower Mound, Texas and has a dedicated page for upcoming events in the area.\n\n3) OPEN(7) https://www.groupon.com/local/flower-mound-tx/tickets-and-events - This Groupon page features discounted tickets and deals for various events in Flower Mound.\n            """},
             {"role": "user", "content": USER_PROMPT},
         ]
     )
@@ -62,6 +44,7 @@ Query: events flower mound tx"""},
             'content': article,
             'url': url,
         })
+
         summarize_url(parsed_urls[-1])
 
     if len(parsed_urls) == 0:
@@ -79,33 +62,26 @@ Query: events flower mound tx"""},
     p.communicate(input=parsed_urls[int(option) - 1]['content'].encode('utf-8'))
 
 def get_article_from_url(url):
-    # Note: This is a hacky way to get the text from a website.
-    # using newspaper3k does a better job of grabbing just the relavent text
-    # command = f'lynx -dump -nolist "{url}"'
-    # try:
-    #     output = subprocess.check_output(command, shell=True).decode()
-    # except subprocess.CalledProcessError as e:
-    #     output = e
-    #     print(f'\nERROR:\n{output}')
-    #     exit()
     article = Article(url)
     try:
         article.download()
         article.parse()
+        output = f"TITLE: {article.title}\n\nTEXT:\n{article.text}"
     except Exception as e:
-        pass
-
-    output = f"TITLE: {article.title}\n\nTEXT:\n{article.text}"
-
-    # leave some room for chatGPT
-    if len(output) > 10000:
-        output = output[:10000]
+        # Note: This is a hacky way to get the text from a website.
+        title = subprocess.check_output(f'lynx -source -dump -nolist "{url}" | sed -n "s/<title>\\(.*\\)<\\/title>/\\1/p"', shell=True).decode()
+        article = subprocess.check_output(f'lynx -dump -nolist "{url}"', shell=True).decode()
+        output = f"TITLE: {title}\n\nTEXT:\n{article}"
 
     return output
 
 
 def summarize_url(parsed_url):
     output = parsed_url['content']
+
+    # leave some room for chatGPT
+    if len(output) > 10000:
+        output = output[:10000]
 
     output += f"\n\nQUERY: \"{query}\""
     
