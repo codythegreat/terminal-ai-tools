@@ -8,6 +8,15 @@ import re
 import json
 import datetime
 import requests
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', type=str, default='gpt-3.5-turbo', help='Model name')
+parser.add_argument('user_prompt', type=str, help='User prompt')
+args = parser.parse_args()
+
+model_name = args.model
+task = args.user_prompt
 
 response = requests.get("https://ipinfo.io/json")
 
@@ -26,6 +35,7 @@ User Details:
 * date: {datetime.datetime.now().strftime("%m-%d-%Y")}
 * time: {datetime.datetime.now().strftime("%H:%M %p")}
 * PWD: {os.getcwd()}
+* text editor: vim
 
 You can execute commands for the user by wrapping them like this: EXECUTE(command).
       
@@ -47,13 +57,11 @@ You can use echo to write text line-by-line into a file.
 Do not use programs that require user input, such as top, nano, or apt.
 """
 
-task = sys.argv[1]
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 MEMORY_SETTINGS = {
     "folder_path": "memory",
-    "file_prefix": "chatgpt-memory_",
+    "file_prefix": f"chatgpt-memory_{model_name}_",
     "file_extension": ".json",
     "token_limit": 3500
 }
@@ -91,9 +99,10 @@ def save_chatgpt_memory(memory_objects, tokens_in_last_completion):
         with open(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file), 'w') as f:
             json.dump(memory_objects, f)
     else:
+        last_user_assistant_message_pair = memory_objects[-2:]
         new_file_name = MEMORY_SETTINGS['file_prefix'] + now + MEMORY_SETTINGS['file_extension']
         with open(os.path.join(MEMORY_SETTINGS['folder_path'], new_file_name), 'w') as f:
-            json.dump(memory_objects, f)
+            json.dump(last_user_assistant_message_pair, f)
 
 def notify_if_chatgpt_memory_exceeds_token_limit(tokens_in_last_completion):
     if tokens_in_last_completion >= MEMORY_SETTINGS['token_limit']:
@@ -126,7 +135,7 @@ def append_completion_to_log_file(completion):
 
 def get_openai_chatgpt_completion(messages):
     completion = openai.ChatCompletion.create(
-        model='gpt-3.5-turbo',
+        model=model_name,
         messages=messages
     )
 
@@ -136,11 +145,12 @@ def get_openai_chatgpt_completion(messages):
     return completion
 
 def format_colored_text(text, color_code):
+    ANSI_COLOR_START = "\033["
+    ANSI_COLOR_END = "m"
     ANSI_COLOR_RESET = "\033[0m"
     if TERM_SUPPORTS_COLOR:
-        return f'\033[{color_code}m{text}{ANSI_COLOR_RESET}'
-    else:
-        return text
+        return f'{ANSI_COLOR_START}{color_code}{ANSI_COLOR_END}{text}{ANSI_COLOR_RESET}'
+    return text
 
 def loop(task):
     memory_objects = load_chatgpt_memory()
@@ -167,9 +177,8 @@ def loop(task):
     for command in match:
         handle_command(command)
     
-    continuing = input("Continue using chatgpt-agent? (y/n): ") == 'y'
-    if continuing:
-        task = input("User: ")
+    task = input("User: ")
+    if task:
         loop(task)
 
 
@@ -201,17 +210,10 @@ def handle_command(command):
 
     elif canExecute:
         try:
-            output = subprocess.check_output(command, shell=True).decode()
+            process = subprocess.Popen(command, shell=True)
+            process.wait()
         except subprocess.CalledProcessError as e:
-            output = e
-        print(f'\nOUTPUT:\n{output}')
-
-    else:
-        instructions = input("If you'd like to instruct chatgpt-agent, type now: ")
-        if instructions != "":
-            task = f'{instructions}'
-            loop(task)
-        exit()
+            print(e)
 
 if __name__ == '__main__':
     loop(task)
