@@ -9,6 +9,7 @@ import json
 import datetime
 import requests
 import argparse
+from chatgpt_memory import ChatGPTMemory
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='gpt-3.5-turbo', help='Model name')
@@ -59,13 +60,6 @@ Do not use programs that require user input, such as top, nano, or apt.
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-MEMORY_SETTINGS = {
-    "folder_path": "memory",
-    "file_prefix": f"chatgpt-memory_{model_name}_",
-    "file_extension": ".json",
-    "token_limit": 3500
-}
-
 LOG_SETTINGS = {
     "dir": "log",
     "is_logging": True
@@ -74,39 +68,10 @@ LOG_SETTINGS = {
 ALERT_ANSI_COLOR = "91"
 CHATGPT_RESPONSE_ANSI_COLOR = "38;5;24"
 
-def get_latest_chatgpt_memory_file():
-    if not os.path.exists(MEMORY_SETTINGS['folder_path']):
-        os.makedirs(MEMORY_SETTINGS['folder_path'])
-    memory_files = [f for f in os.listdir(MEMORY_SETTINGS['folder_path']) if os.path.isfile(os.path.join(MEMORY_SETTINGS['folder_path'], f)) 
-                   and f.startswith(MEMORY_SETTINGS['file_prefix']) and f.endswith(MEMORY_SETTINGS['file_extension'])]
-    if not memory_files:
-        return None
-    return max(memory_files)
-
-def load_chatgpt_memory():
-    latest_file = get_latest_chatgpt_memory_file()
-    if latest_file is not None:
-        with open(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file), 'r') as f:
-            memory_objects = json.load(f)
-    else:
-        memory_objects = []
-    return memory_objects
-
-def save_chatgpt_memory(memory_objects, tokens_in_last_completion):
-    latest_file = get_latest_chatgpt_memory_file()
-    now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    if latest_file is not None and tokens_in_last_completion < MEMORY_SETTINGS['token_limit']:
-        with open(os.path.join(MEMORY_SETTINGS['folder_path'], latest_file), 'w') as f:
-            json.dump(memory_objects, f)
-    else:
-        last_user_assistant_message_pair = memory_objects[-2:]
-        new_file_name = MEMORY_SETTINGS['file_prefix'] + now + MEMORY_SETTINGS['file_extension']
-        with open(os.path.join(MEMORY_SETTINGS['folder_path'], new_file_name), 'w') as f:
-            json.dump(last_user_assistant_message_pair, f)
 
 def notify_if_chatgpt_memory_exceeds_token_limit(tokens_in_last_completion):
-    if tokens_in_last_completion >= MEMORY_SETTINGS['token_limit']:
-        alert_message = f"ALERT: Chat memory exceeds token limit (tokens: {tokens_in_last_completion} >= {MEMORY_SETTINGS['token_limit']})\n"
+    if tokens_in_last_completion >= chatgpt_memory.token_limit:
+        alert_message = f"ALERT: Chat memory exceeds token limit (tokens: {tokens_in_last_completion} >= {chatgpt_memory.token_limit})\n"
         alert_message += "       Creating new chat memory file."
         colored_alert_message = format_colored_text(alert_message, ALERT_ANSI_COLOR)
         print(colored_alert_message)
@@ -153,23 +118,22 @@ def format_colored_text(text, color_code):
     return text
 
 def loop(task):
-    memory_objects = load_chatgpt_memory()
-    memory_objects.append({"role": "user", "content": task})
+    chatgpt_memory.append({"role": "user", "content": task})
 
     messages=[
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
-    messages.extend(memory_objects)
+    messages.extend(chatgpt_memory)
 
     completion = get_openai_chatgpt_completion(messages)
     response = completion.choices[0].message.content
     tokens_in_last_completion = completion.usage['total_tokens']
 
-    memory_objects.append({"role": "assistant", "content": response})
+    chatgpt_memory.append({"role": "assistant", "content": response})
 
     notify_if_chatgpt_memory_exceeds_token_limit(tokens_in_last_completion)
 
-    save_chatgpt_memory(memory_objects, tokens_in_last_completion)
+    chatgpt_memory.save_memory(tokens_in_last_completion)
 
     print(format_colored_text(response, CHATGPT_RESPONSE_ANSI_COLOR) + '\n')
 
@@ -216,4 +180,6 @@ def handle_command(command):
             print(e)
 
 if __name__ == '__main__':
+    chatgpt_memory = ChatGPTMemory(model_name)
+    chatgpt_memory.load_memory()
     loop(task)
